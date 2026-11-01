@@ -277,7 +277,7 @@ else:
                 st.session_state.mcq_answered = False
                 st.rerun()
 
-    # 4. MATCH GAME
+    # 4. MATCH GAME (Live Timer Fixed)
     elif st.session_state.active_mode == "Match Game":
         st.subheader("🎮 Match Game")
         
@@ -296,13 +296,22 @@ else:
             if st.button("Play Again"):
                 st.session_state.match_start_time = None; st.rerun()
         else:
-            if "last_refresh" not in st.session_state: st.session_state.last_refresh = time.time()
-            if time.time() - st.session_state.last_refresh > 1.0:
-                st.session_state.last_refresh = time.time()
-                st.rerun()
-
+            # --- LIVE TIMER LOGIC ---
+            # This placeholder is where the timer lives
+            timer_placeholder = st.empty()
+            
+            # Display current time
             elapsed = round(time.time() - st.session_state.match_start_time, 1)
-            st.write(f"⏱️ Time: **{elapsed}s** | 🔀 Moves: **{st.session_state.match_moves}**")
+            timer_placeholder.write(f"⏱️ Time: **{elapsed}s** | 🔀 Moves: **{st.session_state.match_moves}**")
+
+            # If 1 second has passed since the last refresh, trigger a rerun
+            if "last_match_refresh" not in st.session_state:
+                st.session_state.last_match_refresh = time.time()
+            
+            if time.time() - st.session_state.last_match_refresh >= 1.0:
+                st.session_state.last_match_refresh = time.time()
+                st.rerun()
+            # ------------------------
             
             terms = [c["term"] for c in st.session_state.match_game_cards if c["term"] not in st.session_state.match_matched]
             defs = [c["definition"] for c in st.session_state.match_game_cards if c["definition"] not in st.session_state.match_matched]
