@@ -296,7 +296,6 @@ else:
             if st.button("Play Again"):
                 st.session_state.match_start_time = None; st.rerun()
         else:
-            # Timer refresh trick
             if "last_refresh" not in st.session_state: st.session_state.last_refresh = time.time()
             if time.time() - st.session_state.last_refresh > 1.0:
                 st.session_state.last_refresh = time.time()
@@ -317,36 +316,34 @@ else:
             random.shuffle(terms)
             random.shuffle(defs)
             
+            # --- CALLBACK FUNCTIONS FOR INSTANT UPDATE ---
+            def select_term(term):
+                st.session_state.match_selected_term = term
+
+            def check_definition(definition):
+                if st.session_state.match_selected_term:
+                    st.session_state.match_moves += 1
+                    correct_def = next(c["definition"] for c in st.session_state.match_game_cards if c["term"] == st.session_state.match_selected_term)
+                    
+                    if definition == correct_def:
+                        st.session_state.match_matched.append(st.session_state.match_selected_term)
+                        st.session_state.match_selected_term = None
+                        play_sound("correct")
+                    else:
+                        st.session_state.match_selected_term = None
+                        play_sound("wrong")
+
             col1, col2 = st.columns(2)
             with col1:
                 st.write("### 📦 Terms")
                 for t in terms:
                     btn_type = "primary" if st.session_state.match_selected_term == t else "secondary"
-                    if st.button(t, key=f"term_{t}", use_container_width=True, type=btn_type):
-                        st.session_state.match_selected_term = t
-                        st.rerun()
+                    st.button(t, key=f"term_{t}", use_container_width=True, type=btn_type, on_click=select_term, args=(t,))
                         
             with col2:
                 st.write("### 🎯 Definitions")
                 for d in defs:
-                    if st.button(d, key=f"def_{d}", use_container_width=True):
-                        if st.session_state.match_selected_term:
-                            st.session_state.match_moves += 1
-                            correct_def = next(c["definition"] for c in st.session_state.match_game_cards if c["term"] == st.session_state.match_selected_term)
-                            
-                            if d == correct_def:
-                                st.session_state.match_matched.append(st.session_state.match_selected_term)
-                                st.session_state.match_selected_term = None
-                                play_sound("correct")
-                                st.toast(f"✅ Matched!")
-                                st.rerun()
-                            else:
-                                st.session_state.match_selected_term = None
-                                play_sound("wrong")
-                                st.toast(f"❌ Wrong! Try again.")
-                                st.rerun()
-                        else:
-                            st.warning("⚠️ Please click a Term on the left first!")
+                    st.button(d, key=f"def_{d}", use_container_width=True, on_click=check_definition, args=(d,))
 
     # 5. SCRAMBLE GAME
     elif st.session_state.active_mode == "Scramble":
