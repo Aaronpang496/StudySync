@@ -153,15 +153,15 @@ else:
             if st.button("Next Card ➡️", type="primary"):
                 st.session_state.current_index = (st.session_state.current_index + 1) % len(st.session_state.flashcards)
                 st.session_state.learn_feedback = None; generate_learn_options(); st.rerun()
-
-    elif st.session_state.active_mode == "Test":
+   elif st.session_state.active_mode == "Test":
         st.title("📝 StudySync // Written Test")
         if not st.session_state.test_submitted:
             for idx, card in enumerate(st.session_state.flashcards):
                 st.write(f"**Question {idx+1}:** What does **{card['term']}** mean?")
                 st.session_state.test_answers[card['term']] = st.text_input("", key=f"q_{idx}", label_visibility="collapsed")
             if st.button("Submit Answers", type="primary", use_container_width=True):
-                st.session_state.test_submitted = True; st.rerun()
+                st.session_state.test_submitted = True
+                st.rerun()
         else:
             correct_count = 0
             for card in st.session_state.flashcards:
@@ -172,7 +172,9 @@ else:
                     correct_count += 1
                 else:
                     st.error(f"❌ **{card['term']}**\nExpected: {card['definition']}")
-                        if st.button("Retake", use_container_width=True):
+            st.metric("Test Accuracy", f"{int((correct_count/len(st.session_state.flashcards))*100)}%")
+            
+            if st.button("Retake", use_container_width=True):
                 st.session_state.test_submitted = False
                 st.session_state.test_answers = {}
                 st.rerun()
