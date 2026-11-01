@@ -20,6 +20,9 @@ st.markdown("""
     .stButton>button { border-radius: 12px; font-weight: 700; transition: all 0.2s; border: none; }
     .stButton>button:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
     .xp-badge { background: #ffd700; color: #000; padding: 10px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 20px; border: 3px solid #ffaa00; margin-bottom: 20px; }
+    
+    /* Lives Display Top Right */
+    .lives-container { display: flex; justify-content: flex-end; font-size: 24px; margin-top: -40px; margin-bottom: 10px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -62,13 +65,14 @@ if "match_selected_term" not in st.session_state: st.session_state.match_selecte
 if "match_matched" not in st.session_state: st.session_state.match_matched = []
 if "match_start_time" not in st.session_state: st.session_state.match_start_time = None
 if "match_moves" not in st.session_state: st.session_state.match_moves = 0
+if "match_lives" not in st.session_state: st.session_state.match_lives = 5
 
 # Scramble Game State
 if "scramble_card" not in st.session_state: st.session_state.scramble_card = None
 if "scramble_letters" not in st.session_state: st.session_state.scramble_letters = []
 if "scramble_answer" not in st.session_state: st.session_state.scramble_answer = ""
 
-# True/False Game State (UPDATED)
+# True/False Game State
 if "tf_score" not in st.session_state: st.session_state.tf_score = 0
 if "tf_lives" not in st.session_state: st.session_state.tf_lives = 5
 if "tf_playing" not in st.session_state: st.session_state.tf_playing = False
@@ -101,7 +105,7 @@ with st.sidebar:
     
     with st.expander("📖 How to Use", expanded=True):
         st.markdown("""
-        **1. Generate a Deck:** Type a topic in the box below and hit Generate. *(Leave it blank for a random challenge!)*
+        **1. Generate a Deck:** Type a topic in the box below and hit Generate.
         
         **2. Pick a Mode:** Use the menu at the top of the screen.
         
@@ -109,9 +113,9 @@ with st.sidebar:
         *   **📇 Flashcards:** Flip and memorize.
         *   **🧠 Learn:** Pick the right definition.
         *   **📝 Test:** Multiple-choice quiz.
-        *   **🎮 Match Game:** Race the clock to pair terms.
+        *   **🎮 Match Game:** Race the clock to pair terms (You have 5 lives).
         *   **🧩 Scramble:** Unscramble the hidden word.
-        *   **⚖️ True/False:** Survival mode! You have 5 lives.
+        *   **⚖️ True/False:** Survival mode (You have 5 lives).
         """)
         
     st.divider()
@@ -280,24 +284,39 @@ else:
                 st.session_state.mcq_answered = False
                 st.rerun()
 
-    # 4. MATCH GAME
+    # 4. MATCH GAME (Now with Lives)
     elif st.session_state.active_mode == "Match Game":
         st.subheader("🎮 Match Game")
         
+        # Initialize game
         if st.session_state.match_start_time is None:
             st.session_state.match_start_time = time.time()
             st.session_state.match_matched = []
             st.session_state.match_selected_term = None
             st.session_state.match_moves = 0
+            st.session_state.match_lives = 5
             game_cards = random.sample(st.session_state.flashcards, min(6, len(st.session_state.flashcards)))
             st.session_state.match_game_cards = game_cards
             
-        if len(st.session_state.match_matched) == len(st.session_state.match_game_cards):
+        # Display Lives Top Right
+        st.markdown(f"<div class='lives-container'>Lives: {'❤️' * st.session_state.match_lives}</div>", unsafe_allow_html=True)
+        
+        # Game Over Check
+        if st.session_state.match_lives <= 0:
+            st.error("💀 Game Over! You ran out of lives.")
+            if st.button("Play Again", type="primary"):
+                st.session_state.match_start_time = None
+                st.rerun()
+                
+        # Win Check
+        elif len(st.session_state.match_matched) == len(st.session_state.match_game_cards):
             elapsed = round(time.time() - st.session_state.match_start_time, 1)
             st.success(f"🎉 Victory! Matched in {elapsed} seconds with {st.session_state.match_moves} moves!")
             st.balloons()
             if st.button("Play Again"):
                 st.session_state.match_start_time = None; st.rerun()
+                
+        # Gameplay
         else:
             if "last_refresh" not in st.session_state: st.session_state.last_refresh = time.time()
             if time.time() - st.session_state.last_refresh > 1.0:
@@ -331,6 +350,7 @@ else:
                         st.session_state.match_selected_term = None
                         play_sound("correct")
                     else:
+                        st.session_state.match_lives -= 1
                         st.session_state.match_selected_term = None
                         play_sound("wrong")
 
@@ -390,14 +410,13 @@ else:
             if st.button("Try Again ➡️", type="primary"):
                 st.session_state.scramble_card = None; st.rerun()
 
-    # 6. TRUE / FALSE GAME (UPDATED WITH LIVES)
+    # 6. TRUE / FALSE GAME (Now with Lives Top Right)
     elif st.session_state.active_mode == "True/False":
         st.subheader("⚖️ True or False (Survival)")
         
         # Start Screen
         if not st.session_state.tf_playing:
             st.write(f"🏆 **High Score:** {st.session_state.tf_score}")
-            st.write("❤️ **Lives:** 5")
             if st.button("▶️ Start Survival Mode", type="primary"):
                 st.session_state.tf_playing = True
                 st.session_state.tf_score = 0
@@ -409,17 +428,18 @@ else:
         
         # Game Over Screen
         elif st.session_state.tf_lives <= 0:
+            st.markdown(f"<div class='lives-container'>Lives: {'❤️' * st.session_state.tf_lives}</div>", unsafe_allow_html=True)
             st.error(f"💀 Game Over! You ran out of lives. Final Streak: {st.session_state.tf_score}")
-            st.write("❤️ " * 0)
             if st.button("Play Again", type="primary"):
                 st.session_state.tf_playing = False
                 st.rerun()
                 
         # Gameplay Screen
         else:
-            # Display Stats
-            lives_display = "❤️" * st.session_state.tf_lives
-            st.write(f"🔥 **Streak:** {st.session_state.tf_score}  |  **Lives:** {lives_display}")
+            # Display Lives Top Right
+            st.markdown(f"<div class='lives-container'>Lives: {'❤️' * st.session_state.tf_lives}</div>", unsafe_allow_html=True)
+            
+            st.write(f"🔥 **Streak:** {st.session_state.tf_score}")
             
             # Determine the displayed definition
             shown_def = st.session_state.tf_current["definition"]
@@ -438,10 +458,8 @@ else:
                     st.success("✅ Correct! +5 XP")
                 else:
                     st.error(f"❌ Wrong! The correct definition is: {st.session_state.tf_current['definition']}")
-                    st.write(f"Lives remaining: {'❤️' * st.session_state.tf_lives}")
                 
                 if st.button("Next Question ➡️", type="primary"):
-                    # Load new question
                     st.session_state.tf_answered = False
                     st.session_state.tf_current = random.choice(st.session_state.flashcards)
                     st.session_state.tf_is_correct = random.choice([True, False])
