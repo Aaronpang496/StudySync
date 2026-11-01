@@ -11,18 +11,25 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
     html, body, [class*="css"] { font-family: 'Nunito', sans-serif; }
+    
+    /* Flashcard 3D Bounce */
     .flashcard-container { perspective: 1000px; margin: 30px auto; width: 100%; height: 250px; cursor: pointer; }
     .flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
     .flashcard.flipped { transform: rotateY(180deg); }
     .card-side { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 900; padding: 30px; text-align: center; border-radius: 20px; border: 4px solid #ffffff; }
     .card-front { background: linear-gradient(135deg, #ffffff, #f0f4ff); color: #1e1e1e; }
     .card-back { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; transform: rotateY(180deg); }
+    
+    /* Fun Buttons */
     .stButton>button { border-radius: 12px; font-weight: 700; transition: all 0.2s; border: none; }
     .stButton>button:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    
+    /* XP Badge */
     .xp-badge { background: #ffd700; color: #000; padding: 10px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 20px; border: 3px solid #ffaa00; margin-bottom: 20px; }
     
-    /* Lives Display Top Right */
-    .lives-container { display: flex; justify-content: flex-end; font-size: 24px; margin-top: -40px; margin-bottom: 10px;}
+    /* Header with Lives */
+    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+    .lives-text { font-size: 20px; font-weight: bold; background: #ffe4e6; padding: 5px 15px; border-radius: 20px; color: #e11d48; border: 2px solid #fecdd3; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -113,8 +120,8 @@ with st.sidebar:
         *   **📇 Flashcards:** Flip and memorize.
         *   **🧠 Learn:** Pick the right definition.
         *   **📝 Test:** Multiple-choice quiz.
-        *   **🎮 Match Game:** Race the clock to pair terms (You have 5 lives).
-        *   **🧩 Scramble:** Unscramble the hidden word.
+        *   **🎮 Match Game:** Pair terms (You have 5 lives).
+        *   **🧩 Scramble:** Unscramble the word.
         *   **⚖️ True/False:** Survival mode (You have 5 lives).
         """)
         
@@ -284,9 +291,8 @@ else:
                 st.session_state.mcq_answered = False
                 st.rerun()
 
-    # 4. MATCH GAME (Now with Lives)
+    # 4. MATCH GAME (With Clean Lives Formatting)
     elif st.session_state.active_mode == "Match Game":
-        st.subheader("🎮 Match Game")
         
         # Initialize game
         if st.session_state.match_start_time is None:
@@ -298,8 +304,13 @@ else:
             game_cards = random.sample(st.session_state.flashcards, min(6, len(st.session_state.flashcards)))
             st.session_state.match_game_cards = game_cards
             
-        # Display Lives Top Right
-        st.markdown(f"<div class='lives-container'>Lives: {'❤️' * st.session_state.match_lives}</div>", unsafe_allow_html=True)
+        # Header with Lives
+        st.markdown(f"""
+        <div class="header-container">
+            <h3 style='margin:0;'>🎮 Match Game</h3>
+            <div class="lives-text">Lives: {'❤️' * st.session_state.match_lives}</div>
+        </div>
+        """, unsafe_allow_html=True)
         
         # Game Over Check
         if st.session_state.match_lives <= 0:
@@ -410,12 +421,12 @@ else:
             if st.button("Try Again ➡️", type="primary"):
                 st.session_state.scramble_card = None; st.rerun()
 
-    # 6. TRUE / FALSE GAME (Now with Lives Top Right)
+    # 6. TRUE / FALSE GAME (With Clean Lives Formatting)
     elif st.session_state.active_mode == "True/False":
-        st.subheader("⚖️ True or False (Survival)")
         
         # Start Screen
         if not st.session_state.tf_playing:
+            st.subheader("⚖️ True or False (Survival)")
             st.write(f"🏆 **High Score:** {st.session_state.tf_score}")
             if st.button("▶️ Start Survival Mode", type="primary"):
                 st.session_state.tf_playing = True
@@ -428,7 +439,7 @@ else:
         
         # Game Over Screen
         elif st.session_state.tf_lives <= 0:
-            st.markdown(f"<div class='lives-container'>Lives: {'❤️' * st.session_state.tf_lives}</div>", unsafe_allow_html=True)
+            st.subheader("⚖️ True or False (Survival)")
             st.error(f"💀 Game Over! You ran out of lives. Final Streak: {st.session_state.tf_score}")
             if st.button("Play Again", type="primary"):
                 st.session_state.tf_playing = False
@@ -436,8 +447,13 @@ else:
                 
         # Gameplay Screen
         else:
-            # Display Lives Top Right
-            st.markdown(f"<div class='lives-container'>Lives: {'❤️' * st.session_state.tf_lives}</div>", unsafe_allow_html=True)
+            # Header with Lives
+            st.markdown(f"""
+            <div class="header-container">
+                <h3 style='margin:0;'>⚖️ True or False</h3>
+                <div class="lives-text">Lives: {'❤️' * st.session_state.tf_lives}</div>
+            </div>
+            """, unsafe_allow_html=True)
             
             st.write(f"🔥 **Streak:** {st.session_state.tf_score}")
             
