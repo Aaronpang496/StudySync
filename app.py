@@ -49,7 +49,7 @@ if st.session_state.current_index >= len(st.session_state.flashcards):
 # --- SIDEBAR NAV & NO-API GENERATION ---
 with st.sidebar:
     st.title("⚡ StudySync")
-    st.caption("No-API Revision Hub")
+    st.caption("AI-Powered Revision Hub")
     
     # Mode Switches
     st.subheader("Study Modes")
@@ -62,16 +62,19 @@ with st.sidebar:
         
     st.divider()
     
-    # Simple Copy-Paste Importer
+    # Simple Copy-Paste Importer with Gemini Redirect & Clipboard Integration
     st.subheader("📋 AI Importer (No API Key)")
-    st.write("1. Copy this prompt instructions:")
+    st.write("1. Review/Copy the prompt instructions below:")
     
-    instruction_prompt = "Create 5 revision flashcards about [YOUR TOPIC]. Use exactly this format, with nothing else: \nTerm : Definition"
+    instruction_prompt = "Create 5 revision flashcards about [YOUR TOPIC]. Use exactly this format, with nothing else:\nTerm : Definition"
+    
+    # Use Streamlit's code block widget which includes a built-in interactive copy icon button
     st.code(instruction_prompt, language="text")
     
-    st.write("2. Paste it into ChatGPT / Gemini web app.")
-    st.write("3. Paste the AI result below:")
+    st.write("2. Open Gemini, paste the prompt, and insert your specific topic:")
+    st.link_button("🌐 Open Google Gemini", "https://google.com", type="secondary", use_container_width=True)
     
+    st.write("3. Copy the Gemini response text and paste it below:")
     bulk_data = st.text_area("AI Response Input", height=150, label_visibility="collapsed", placeholder="Example:\nGravity : Force pulling objects together\nAtom : Basic unit of a chemical element")
     
     if st.button("📥 Import Deck", use_container_width=True, type="primary"):
@@ -170,5 +173,5 @@ else:
                 else:
                     st.error(f"❌ **{card['term']}**\nExpected: {card['definition']}")
             st.metric("Test Accuracy", f"{int((correct_count/len(st.session_state.flashcards))*100)}%")
-            if st.button("Retake", use_container_width=True):
-                st.session_state.test_submitted = False; st.session_state.test_answers = {}; st.rerun()
+if st.button("Retake", use_container_ width=True):
+st.session_state.test_submitted = False; st.session_state.test_answers = O; st.rerun()
