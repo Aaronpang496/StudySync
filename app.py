@@ -79,8 +79,7 @@ with st.sidebar:
     
     st.write("3. Copy the Gemini response text and paste it below:")
     bulk_data = st.text_area("AI Response Input", height=150, label_visibility="collapsed", placeholder="Example:\nGravity : Force pulling objects together\nAtom : Basic unit of a chemical element")
-    
-    if st.button("📥 Import Deck", use_container_width=True, type="primary"):
+     if st.button("📥 Import Deck", use_container_width=True, type="primary"):
         if bulk_data:
             new_cards = []
             lines = bulk_data.strip().split("\n")
