@@ -173,5 +173,5 @@ else:
                 else:
                     st.error(f"❌ **{card['term']}**\nExpected: {card['definition']}")
             st.metric("Test Accuracy", f"{int((correct_count/len(st.session_state.flashcards))*100)}%")
-if st.button("Retake", use_container_ width=True):
+if st.button("Retake", use_container_width=True):
 st.session_state.test_submitted = False; st.session_state.test_answers = O; st.rerun()
