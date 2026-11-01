@@ -1,5 +1,7 @@
 import streamlit as st
 import random
+import json
+from openai import OpenAI
 
 # Set page configuration
 st.set_page_config(page_title="StudySync", page_icon="⚡", layout="centered")
@@ -14,7 +16,6 @@ st.markdown("""
     .card-front { background-color: #ffffff; color: #1e1e1e; }
     .card-back { background-color: #2e5bff; color: #ffffff; transform: rotateY(180deg); }
     .hint-text { text-align: center; color: #888888; font-size: 14px; margin-top: 5px; }
-    .mode-box { padding: 15px; border-radius: 10px; border-left: 5px solid #2e5bff; background-color: #f8f9fa; margin-bottom: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -46,44 +47,57 @@ def generate_learn_options():
 if st.session_state.current_index >= len(st.session_state.flashcards):
     st.session_state.current_index = 0
 
-# --- SIDEBAR NAV & NO-API GENERATION ---
+# --- SIDEBAR NAV & AI GENERATION ---
 with st.sidebar:
-        # Simple Copy-Paste Importer with Multi-AI Redirect Links
-    st.subheader("📋 AI Importer (No API Key)")
-    st.write("1. Click the copy icon on the top-right of this box:")
+    st.subheader("🤖 AI Flashcard Generator")
+    topic = st.text_input("What do you want to study?", placeholder="e.g., The Solar System")
     
-    instruction_prompt = "Create 5 revision flashcards about [YOUR TOPIC]. Use exactly this format, with nothing else:\nTerm : Definition"
-    st.code(instruction_prompt, language="text")
-    
-    st.write("2. Open an AI tab, paste it, and swap in your topic:")
-    
-    # Dual columns for flexible choices
-    ai_col1, ai_col2 = st.columns(2)
-    with ai_col1:
-        st.link_button("🌐 Google Gemini", "https://google.com", type="secondary", use_container_width=True)
-    with ai_col2:
-        st.link_button("💬 ChatGPT Web", "https://chatgpt.com", type="secondary", use_container_width=True)
-    
-    st.write("3. Copy the response text and paste it below:")
-    bulk_data = st.text_area("AI Response Input", height=150, label_visibility="collapsed", placeholder="Example:\nGravity : Force pulling objects together\nAtom : Basic unit of a chemical element")
+    if st.button("✨ Generate Deck", type="primary", use_container_width=True):
+        if not topic:
+            st.warning("Please enter a topic.")
+        else:
+            try:
+                # ==========================================
+                # ⚠️ PASTE YOUR NEW OPENROUTER KEY HERE ⚠️
+                # ==========================================
+                client = OpenAI(
+                    base_url="https://openrouter.ai/api/v1",
+                    api_key="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)", 
+                
+                
+                with st.spinner("Generating flashcards..."):
+                    response = client.chat.completions.create(
+                        model="meta-llama/llama-3-8b-instruct:free", # Free model
+                        messages=[
+                            {"role": "system", "content": "You are a helpful study assistant. Output ONLY a valid JSON array of objects with 'term' and 'definition' keys. Do not use markdown formatting like ```json."},
+                            {"role": "user", "content": f"Create 5 flashcards about {topic}."}
+                        ]
+                    )
+                    
+                    # Parse the AI response
+                    raw_text = response.choices[0].message.content.strip()
+                    if raw_text.startswith("```json"): raw_text = raw_text[7:-3]
+                    
+                    new_cards = json.loads(raw_text)
+                    st.session_state.flashcards = new_cards
+                    st.session_state.current_index = 0
+                    st.session_state.is_flipped = False
+                    st.success(f"Loaded {len(new_cards)} cards about {topic}!")
+                    st.rerun()
 
-    # Simple Copy-Paste Importer with Gemini Redirect
-    st.subheader("📋 AI Importer (No API Key)")
-    st.write("1. Click the copy icon on the top-right of this box:")
+            except Exception as e:
+                st.error(f"API Error: Check if your API key is correct. Error: {e}")
+
+    st.divider()
     
-    instruction_prompt = "Create 5 revision flashcards about [YOUR TOPIC]. Use exactly this format, with nothing else:\nTerm : Definition"
-    st.code(instruction_prompt, language="text")
+    # Manual Importer (Fallback)
+    st.subheader("📋 Manual Importer")
+    bulk_data = st.text_area("Paste 'Term : Definition' lines here", height=150)
     
-    st.write("2. Open Gemini, paste it, and swap in your topic:")
-    st.link_button("🌐 Open Google Gemini", "https://google.com", type="secondary", use_container_width=True)
-    
-    st.write("3. Copy the Gemini response text and paste it below:")
-    bulk_data = st.text_area("AI Response Input", height=150, label_visibility="collapsed", placeholder="Example:\nGravity : Force pulling objects together\nAtom : Basic unit of a chemical element")
-     if st.button("📥 Import Deck", use_container_width=True, type="primary"):
+    if st.button("📥 Import Manual Deck", use_container_width=True):
         if bulk_data:
             new_cards = []
-            lines = bulk_data.strip().split("\n")
-            for line in lines:
+            for line in bulk_data.strip().split("\n"):
                 if ":" in line:
                     term, definition = line.split(":", 1)
                     new_cards.append({"term": term.strip(), "definition": definition.strip()})
@@ -92,17 +106,14 @@ with st.sidebar:
                 st.session_state.flashcards = new_cards
                 st.session_state.current_index = 0
                 st.session_state.is_flipped = False
-                st.sidebar.success(f"Loaded {len(new_cards)} cards!")
                 st.rerun()
-            else:
-                st.sidebar.error("Formatting error. Make sure to use 'Term : Definition'")
 
     st.write(f"**Deck Status:** {len(st.session_state.flashcards)} cards active.")
 
 # --- MAIN CONTENT DECK ROUTING ENGINE ---
 if len(st.session_state.flashcards) < 3 and st.session_state.active_mode in ["Learn", "Test"]:
     st.title("⚡ StudySync Hub")
-    st.warning("⚠️ Please import a collection containing at least 3 cards to unlock full interactive testing suites.")
+    st.warning("⚠️ Please add a collection containing at least 3 cards to unlock full interactive testing suites.")
 else:
     current_card = st.session_state.flashcards[st.session_state.current_index]
 
