@@ -1,12 +1,12 @@
 import streamlit as st
 import random
 import json
-from openai import OpenAI
+import requests
 
 # Set page configuration
 st.set_page_config(page_title="StudySync", page_icon="⚡", layout="centered")
 
-# Custom CSS for modern styling and animations
+# Custom CSS
 st.markdown("""
 <style>
     .flashcard-container { perspective: 1000px; margin: 20px auto; width: 100%; height: 250px; cursor: pointer; }
@@ -15,11 +15,10 @@ st.markdown("""
     .card-side { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; padding: 20px; text-align: center; border-radius: 15px; border: 2px solid #e0e0e0; }
     .card-front { background-color: #ffffff; color: #1e1e1e; }
     .card-back { background-color: #2e5bff; color: #ffffff; transform: rotateY(180deg); }
-    .hint-text { text-align: center; color: #888888; font-size: 14px; margin-top: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize Global Session State
+# Initialize Session State
 if "flashcards" not in st.session_state:
     st.session_state.flashcards = [
         {"term": "Mitosis", "definition": "A type of cell division that results in two daughter cells."},
@@ -47,53 +46,67 @@ def generate_learn_options():
 if st.session_state.current_index >= len(st.session_state.flashcards):
     st.session_state.current_index = 0
 
-# --- SIDEBAR NAV & AI GENERATION ---
+# --- SIDEBAR: AUTOMATED FREE AI GENERATOR ---
 with st.sidebar:
-    st.subheader("🤖 AI Flashcard Generator")
-    topic = st.text_input("What do you want to study?", placeholder="e.g., The Solar System")
+    st.subheader("🤖 Free AI Generator")
+    
+    topic = st.text_input("Topic (e.g., Biology):", placeholder="The Solar System")
+    
+    # NEW: Optional specific words input
+    specific_words = st.text_area(
+        "Specific words (Optional):", 
+        placeholder="Paste words separated by commas...\ne.g., ATP, Ribosome, Nucleus",
+        height=100
+    )
     
     if st.button("✨ Generate Deck", type="primary", use_container_width=True):
-        if not topic:
-            st.warning("Please enter a topic.")
+        if not topic and not specific_words:
+            st.warning("Please enter a topic or some specific words.")
         else:
-            try:
-                # ==========================================
-                # ⚠️ PASTE YOUR NEW OPENROUTER KEY HERE ⚠️
-                # ==========================================
-                client = OpenAI(
-                    base_url="https://openrouter.ai/api/v1",
-                    api_key="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)", 
-                
-                
-                with st.spinner("Generating flashcards..."):
-                    response = client.chat.completions.create(
-                        model="meta-llama/llama-3-8b-instruct:free", # Free model
-                        messages=[
-                            {"role": "system", "content": "You are a helpful study assistant. Output ONLY a valid JSON array of objects with 'term' and 'definition' keys. Do not use markdown formatting like ```json."},
-                            {"role": "user", "content": f"Create 5 flashcards about {topic}."}
-                        ]
-                    )
+            with st.spinner("AI is generating cards..."):
+                try:
+                    # Construct the prompt based on user input
+                    if specific_words:
+                        prompt = f"Create flashcards for these specific terms: {specific_words}. Context/Topic: {topic}. Output ONLY a valid JSON array of objects with 'term' and 'definition' keys. Do not use markdown or any other text."
+                    else:
+                        prompt = f"Create exactly 5 flashcards about {topic}. Output ONLY a valid JSON array of objects with 'term' and 'definition' keys. Do not use markdown or any other text."
                     
-                    # Parse the AI response
-                    raw_text = response.choices[0].message.content.strip()
-                    if raw_text.startswith("```json"): raw_text = raw_text[7:-3]
+                    # Send request to the free endpoint
+                    response = requests.get(f"https://text.pollinations.ai/{requests.utils.quote(prompt)}")
                     
-                    new_cards = json.loads(raw_text)
-                    st.session_state.flashcards = new_cards
-                    st.session_state.current_index = 0
-                    st.session_state.is_flipped = False
-                    st.success(f"Loaded {len(new_cards)} cards about {topic}!")
-                    st.rerun()
-
-            except Exception as e:
-                st.error(f"API Error: Check if your API key is correct. Error: {e}")
+                    if response.status_code == 200:
+                        raw_text = response.text.strip()
+                        
+                        # Clean up formatting if the AI adds markdown
+                        if raw_text.startswith("```json"): raw_text = raw_text[7:-3]
+                        if raw_text.startswith("```"): raw_text = raw_text[3:-3]
+                        
+                        # Find the JSON array if the AI added extra text
+                        start_idx = raw_text.find('[')
+                        end_idx = raw_text.rfind(']')
+                        if start_idx != -1 and end_idx != -1:
+                            raw_text = raw_text[start_idx:end_idx+1]
+                        
+                        # Parse the JSON
+                        new_cards = json.loads(raw_text)
+                        
+                        # Update state
+                        st.session_state.flashcards = new_cards
+                        st.session_state.current_index = 0
+                        st.session_state.is_flipped = False
+                        st.success(f"Loaded {len(new_cards)} cards!")
+                        st.rerun()
+                    else:
+                        st.error("Free AI server is busy. Try again in a few seconds.")
+                        
+                except Exception as e:
+                    st.error("AI had trouble formatting the response. Please try clicking Generate again.")
 
     st.divider()
     
-    # Manual Importer (Fallback)
+    # Manual Importer
     st.subheader("📋 Manual Importer")
-    bulk_data = st.text_area("Paste 'Term : Definition' lines here", height=150)
-    
+    bulk_data = st.text_area("Paste 'Term : Definition' lines here", height=100)
     if st.button("📥 Import Manual Deck", use_container_width=True):
         if bulk_data:
             new_cards = []
@@ -101,7 +114,6 @@ with st.sidebar:
                 if ":" in line:
                     term, definition = line.split(":", 1)
                     new_cards.append({"term": term.strip(), "definition": definition.strip()})
-            
             if new_cards:
                 st.session_state.flashcards = new_cards
                 st.session_state.current_index = 0
@@ -110,15 +122,27 @@ with st.sidebar:
 
     st.write(f"**Deck Status:** {len(st.session_state.flashcards)} cards active.")
 
-# --- MAIN CONTENT DECK ROUTING ENGINE ---
+
+# --- MAIN CONTENT ---
+st.title("⚡ StudySync Hub")
+
+# Mode Selector
+mode = st.radio("Select Mode:", ["Flashcards", "Learn", "Test"], horizontal=True, label_visibility="collapsed")
+if mode != st.session_state.active_mode:
+    st.session_state.active_mode = mode
+    st.session_state.is_flipped = False
+    st.session_state.test_submitted = False
+    st.rerun()
+
+st.divider()
+
 if len(st.session_state.flashcards) < 3 and st.session_state.active_mode in ["Learn", "Test"]:
-    st.title("⚡ StudySync Hub")
     st.warning("⚠️ Please add a collection containing at least 3 cards to unlock full interactive testing suites.")
 else:
     current_card = st.session_state.flashcards[st.session_state.current_index]
 
     if st.session_state.active_mode == "Flashcards":
-        st.title("📇 StudySync // Flashcards")
+        st.subheader("📇 Flashcards")
         st.progress((st.session_state.current_index + 1) / len(st.session_state.flashcards))
         
         flipped_class = "flipped" if st.session_state.is_flipped else ""
@@ -145,7 +169,7 @@ else:
                 st.session_state.is_flipped = False; st.rerun()
 
     elif st.session_state.active_mode == "Learn":
-        st.title("🧠 StudySync // Learn")
+        st.subheader("🧠 Learn")
         st.write(f"### Select definition for: **{current_card['term']}**")
         
         if not st.session_state.learn_options:
@@ -168,7 +192,7 @@ else:
                 st.session_state.learn_feedback = None; generate_learn_options(); st.rerun()
 
     elif st.session_state.active_mode == "Test":
-        st.title("📝 StudySync // Written Test")
+        st.subheader("📝 Written Test")
         if not st.session_state.test_submitted:
             for idx, card in enumerate(st.session_state.flashcards):
                 st.write(f"**Question {idx+1}:** What does **{card['term']}** mean?")
