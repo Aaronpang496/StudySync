@@ -4,33 +4,25 @@ import json
 import requests
 import time
 
-st.set_page_config(page_title="StudySync", page_icon="🎮", layout="centered", initial_sidebar_state="expanded")
+st.set_page_config(page_title="StudySync", page_icon="🎮", layout="centered")
 
 # --- FUN CSS & ANIMATIONS ---
 st.markdown("""
 <style>
-    /* Global Font */
     @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
     html, body, [class*="css"] { font-family: 'Nunito', sans-serif; }
-    
-    /* Flashcard 3D Bounce */
     .flashcard-container { perspective: 1000px; margin: 30px auto; width: 100%; height: 250px; cursor: pointer; }
     .flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
     .flashcard.flipped { transform: rotateY(180deg); }
     .card-side { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 900; padding: 30px; text-align: center; border-radius: 20px; border: 4px solid #ffffff; }
     .card-front { background: linear-gradient(135deg, #ffffff, #f0f4ff); color: #1e1e1e; }
     .card-back { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; transform: rotateY(180deg); }
-    
-    /* Fun Buttons */
     .stButton>button { border-radius: 12px; font-weight: 700; transition: all 0.2s; border: none; }
     .stButton>button:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-    
-    /* XP Badge */
     .xp-badge { background: #ffd700; color: #000; padding: 10px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 20px; border: 3px solid #ffaa00; margin-bottom: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- AUDIO TRICK (Plays sound without external files) ---
 def play_sound(sound_type):
     if sound_type == "correct":
         audio_html = """<audio autoplay="true" src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"></audio>"""
@@ -38,16 +30,30 @@ def play_sound(sound_type):
         audio_html = """<audio autoplay="true" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3"></audio>"""
     st.markdown(audio_html, unsafe_allow_html=True)
 
+# --- HARD RANDOM VOCABULARY DATABASE ---
+HARD_WORDS = [
+    {"term": "Obfuscate", "definition": "To make unclear or unintelligible."},
+    {"term": "Pragmatic", "definition": "Dealing with things sensibly and realistically."},
+    {"term": "Ephemeral", "definition": "Lasting for a very short time."},
+    {"term": "Ubiquitous", "definition": "Present, appearing, or found everywhere."},
+    {"term": "Mitochondria", "definition": "The powerhouse of the cell, generating ATP."},
+    {"term": "Entropy", "definition": "A measure of disorder or randomness in a system."},
+    {"term": "Catalyst", "definition": "A substance that increases the rate of a chemical reaction."},
+    {"term": "Algorithm", "definition": "A process or set of rules to be followed in calculations."},
+    {"term": "Paradigm", "definition": "A typical example or pattern of something; a model."},
+    {"term": "Sycophant", "definition": "A person who acts obsequiously toward someone important."},
+    {"term": "Zeitgeist", "definition": "The defining spirit or mood of a particular period of history."},
+    {"term": "Quantum", "definition": "A discrete quantity of energy proportional in magnitude to the frequency of the radiation."},
+    {"term": "Photosynthesis", "definition": "The process by which green plants use sunlight to synthesize nutrients."},
+    {"term": "String Theory", "definition": "A theoretical framework in which the point-like particles of particle physics are replaced by one-dimensional objects called strings."},
+    {"term": "Stoichiometry", "definition": "The relationship between the relative quantities of substances taking part in a reaction."}
+]
+
 # --- STATE MANAGEMENT ---
 if "xp" not in st.session_state: st.session_state.xp = 0
 if "flashcards" not in st.session_state:
-    st.session_state.flashcards = [
-        {"term": "Mitosis", "definition": "A type of cell division that results in two daughter cells."},
-        {"term": "Photosynthesis", "definition": "The process by which green plants use sunlight to synthesize nutrients."},
-        {"term": "Python", "definition": "A high-level, general-purpose programming language."},
-        {"term": "Atom", "definition": "The basic unit of a chemical element."},
-        {"term": "Gravity", "definition": "The force that attracts a body toward the center of the earth."},
-    ]
+    # Start with 5 random hard words
+    st.session_state.flashcards = random.sample(HARD_WORDS, 5)
 
 if "active_mode" not in st.session_state: st.session_state.active_mode = "Flashcards"
 if "current_index" not in st.session_state: st.session_state.current_index = 0
@@ -91,20 +97,21 @@ with st.sidebar:
     st.markdown(f'<div class="xp-badge">🏆 {st.session_state.xp} XP</div>', unsafe_allow_html=True)
     
     st.subheader("🤖 AI Deck Generator")
-    topic = st.text_input("Topic:", placeholder="e.g., Space, Biology")
-    specific_words = st.text_area("Specific words (Optional):", placeholder="ATP, Ribosome", height=80)
+    topic = st.text_input("Topic:", placeholder="Leave blank for hard random words!")
     
     if st.button("✨ Generate Deck", type="primary", use_container_width=True):
-        if not topic and not specific_words:
-            st.warning("Enter a topic or words.")
+        # IF BLANK -> PULL RANDOM HARD WORDS
+        if not topic.strip():
+            st.session_state.flashcards = random.sample(HARD_WORDS, 5)
+            st.session_state.current_index = 0
+            st.session_state.learn_feedback = None
+            st.session_state.test_submitted = False
+            st.success("Loaded 5 random hard words!")
+            st.rerun()
         else:
             with st.spinner("AI is cooking up your cards..."):
                 try:
-                    if specific_words:
-                        prompt = f"Create flashcards for these terms: {specific_words}. Context: {topic}. Output ONLY a valid JSON array of objects with 'term' and 'definition' keys. No markdown."
-                    else:
-                        prompt = f"Create exactly 5 flashcards about {topic}. Output ONLY a valid JSON array of objects with 'term' and 'definition' keys. No markdown."
-                    
+                    prompt = f"Create exactly 5 flashcards about {topic}. Output ONLY a valid JSON array of objects with 'term' and 'definition' keys. No markdown."
                     response = requests.get(f"https://text.pollinations.ai/{requests.utils.quote(prompt)}")
                     if response.status_code == 200:
                         raw_text = response.text.strip()
@@ -116,6 +123,8 @@ with st.sidebar:
                         new_cards = json.loads(raw_text)
                         st.session_state.flashcards = new_cards
                         st.session_state.current_index = 0
+                        st.session_state.learn_feedback = None
+                        st.session_state.test_submitted = False
                         st.success(f"Loaded {len(new_cards)} cards!")
                         st.rerun()
                     else:
@@ -223,7 +232,7 @@ else:
             
             acc = int((correct_count/len(st.session_state.flashcards))*100)
             st.metric("Accuracy", f"{acc}%")
-            st.session_state.xp += (acc // 2) # Give XP based on accuracy
+            st.session_state.xp += (acc // 2)
             
             if st.button("Retake"): st.session_state.test_submitted = False; st.session_state.test_answers = {}; st.rerun()
 
