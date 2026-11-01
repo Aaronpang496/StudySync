@@ -62,16 +62,14 @@ with st.sidebar:
         
     st.divider()
     
-    # Simple Copy-Paste Importer with Gemini Redirect & Clipboard Integration
+    # Simple Copy-Paste Importer with Gemini Redirect
     st.subheader("📋 AI Importer (No API Key)")
-    st.write("1. Review/Copy the prompt instructions below:")
+    st.write("1. Click the copy icon on the top-right of this box:")
     
     instruction_prompt = "Create 5 revision flashcards about [YOUR TOPIC]. Use exactly this format, with nothing else:\nTerm : Definition"
-    
-    # Use Streamlit's code block widget which includes a built-in interactive copy icon button
     st.code(instruction_prompt, language="text")
     
-    st.write("2. Open Gemini, paste the prompt, and insert your specific topic:")
+    st.write("2. Open Gemini, paste it, and swap in your topic:")
     st.link_button("🌐 Open Google Gemini", "https://google.com", type="secondary", use_container_width=True)
     
     st.write("3. Copy the Gemini response text and paste it below:")
@@ -153,7 +151,8 @@ else:
             if st.button("Next Card ➡️", type="primary"):
                 st.session_state.current_index = (st.session_state.current_index + 1) % len(st.session_state.flashcards)
                 st.session_state.learn_feedback = None; generate_learn_options(); st.rerun()
-   elif st.session_state.active_mode == "Test":
+
+    elif st.session_state.active_mode == "Test":
         st.title("📝 StudySync // Written Test")
         if not st.session_state.test_submitted:
             for idx, card in enumerate(st.session_state.flashcards):
@@ -177,4 +176,4 @@ else:
             if st.button("Retake", use_container_width=True):
                 st.session_state.test_submitted = False
                 st.session_state.test_answers = {}
-                st.rerun()
+st.rerun()
