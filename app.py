@@ -48,20 +48,25 @@ if st.session_state.current_index >= len(st.session_state.flashcards):
 
 # --- SIDEBAR NAV & NO-API GENERATION ---
 with st.sidebar:
-    st.title("⚡ StudySync")
-    st.caption("AI-Powered Revision Hub")
+        # Simple Copy-Paste Importer with Multi-AI Redirect Links
+    st.subheader("📋 AI Importer (No API Key)")
+    st.write("1. Click the copy icon on the top-right of this box:")
     
-    # Mode Switches
-    st.subheader("Study Modes")
-    if st.button("📇 Flashcards", use_container_width=True, type="primary" if st.session_state.active_mode == "Flashcards" else "secondary"):
-        st.session_state.active_mode = "Flashcards"; st.session_state.is_flipped = False; st.rerun()
-    if st.button("🧠 Learn Mode", use_container_width=True, type="primary" if st.session_state.active_mode == "Learn" else "secondary"):
-        st.session_state.active_mode = "Learn"; st.session_state.learn_feedback = None; generate_learn_options(); st.rerun()
-    if st.button("📝 Written Test", use_container_width=True, type="primary" if st.session_state.active_mode == "Test" else "secondary"):
-        st.session_state.active_mode = "Test"; st.session_state.test_submitted = False; st.session_state.test_answers = {}; st.rerun()
-        
-    st.divider()
+    instruction_prompt = "Create 5 revision flashcards about [YOUR TOPIC]. Use exactly this format, with nothing else:\nTerm : Definition"
+    st.code(instruction_prompt, language="text")
     
+    st.write("2. Open an AI tab, paste it, and swap in your topic:")
+    
+    # Dual columns for flexible choices
+    ai_col1, ai_col2 = st.columns(2)
+    with ai_col1:
+        st.link_button("🌐 Google Gemini", "https://google.com", type="secondary", use_container_width=True)
+    with ai_col2:
+        st.link_button("💬 ChatGPT Web", "https://chatgpt.com", type="secondary", use_container_width=True)
+    
+    st.write("3. Copy the response text and paste it below:")
+    bulk_data = st.text_area("AI Response Input", height=150, label_visibility="collapsed", placeholder="Example:\nGravity : Force pulling objects together\nAtom : Basic unit of a chemical element")
+
     # Simple Copy-Paste Importer with Gemini Redirect
     st.subheader("📋 AI Importer (No API Key)")
     st.write("1. Click the copy icon on the top-right of this box:")
