@@ -3,7 +3,6 @@ import random
 import json
 import requests
 import time
-from streamlit_autorefresh import st_autorefresh # Required for the timer
 
 st.set_page_config(page_title="StudySync", page_icon="🎮", layout="centered")
 
@@ -91,14 +90,13 @@ if st.session_state.current_index >= len(st.session_state.flashcards):
 with st.sidebar:
     st.markdown(f'<div class="xp-badge">🏆 {st.session_state.xp} XP</div>', unsafe_allow_html=True)
     st.subheader("🤖 AI Deck Generator")
-    topic = st.text_input("Topic:", placeholder="Leave blank for hard random words!")
+    topic = st.text_input("Topic:", placeholder="Leave blank for random words!")
     
     if st.button("✨ Generate Deck", type="primary", use_container_width=True):
         if not topic.strip():
             st.session_state.flashcards = random.sample(HARD_WORDS, 5)
             st.session_state.current_index = 0
             st.session_state.learn_feedback = None
-            st.session_state.test_submitted = False
             st.success("Loaded 5 random hard words!")
             st.rerun()
         else:
@@ -117,7 +115,6 @@ with st.sidebar:
                         st.session_state.flashcards = new_cards
                         st.session_state.current_index = 0
                         st.session_state.learn_feedback = None
-                        st.session_state.test_submitted = False
                         st.success(f"Loaded {len(new_cards)} cards!")
                         st.rerun()
                     else:
@@ -204,11 +201,10 @@ else:
                 st.session_state.current_index = (st.session_state.current_index + 1) % len(st.session_state.flashcards)
                 st.session_state.learn_feedback = None; generate_learn_options(); st.rerun()
 
-    # 3. TEST (NOW MULTIPLE CHOICE - NO TYPING)
+    # 3. TEST (MULTIPLE CHOICE)
     elif st.session_state.active_mode == "Test":
         st.subheader("📝 Multiple Choice Test")
         
-        # Use session state to track test progress
         if "mcq_current" not in st.session_state:
             st.session_state.mcq_current = 0
             st.session_state.mcq_score = 0
@@ -220,7 +216,6 @@ else:
             st.write(f"**Question {st.session_state.mcq_current + 1} of {len(st.session_state.flashcards)}**")
             st.progress((st.session_state.mcq_current) / len(st.session_state.flashcards))
             
-            # Generate options once per question
             if not st.session_state.mcq_options:
                 wrong_cards = [c for c in st.session_state.flashcards if c["term"] != card["term"]]
                 opts = [card["definition"]] + [c["definition"] for c in random.sample(wrong_cards, min(3, len(wrong_cards)))]
@@ -258,7 +253,7 @@ else:
                 st.session_state.mcq_answered = False
                 st.rerun()
 
-    # 4. MATCH GAME (WITH AUTO-REFRESH TIMER)
+    # 4. MATCH GAME (Native timer workaround)
     elif st.session_state.active_mode == "Match Game":
         st.subheader("🎮 Match Game")
         
@@ -277,9 +272,12 @@ else:
             if st.button("Play Again"):
                 st.session_state.match_start_time = None; st.rerun()
         else:
-            # FORCE REFRESH EVERY SECOND FOR TIMER
-            st_autorefresh(interval=1000, key="match_timer")
-            
+            # Native auto-refresh trick
+            if "last_refresh" not in st.session_state: st.session_state.last_refresh = time.time()
+            if time.time() - st.session_state.last_refresh > 1.0:
+                st.session_state.last_refresh = time.time()
+                st.rerun()
+
             elapsed = round(time.time() - st.session_state.match_start_time, 1)
             st.write(f"⏱️ Time: **{elapsed}s** | 🔀 Moves: **{st.session_state.match_moves}**")
             
@@ -311,7 +309,7 @@ else:
                                 play_sound("wrong")
                             st.rerun()
 
-    # 5. SCRAMBLE GAME (NOW SHOWS WORD LENGTH)
+    # 5. SCRAMBLE GAME
     elif st.session_state.active_mode == "Scramble":
         st.subheader("🧩 Scramble")
         
@@ -328,7 +326,7 @@ else:
         
         st.info(f"**Clue:** {st.session_state.scramble_card['definition']}")
         
-        # Show number of letters needed
+        # Show blanks (word length)
         blanks = " ".join(["_" for _ in target_word])
         st.markdown(f"<h3 style='letter-spacing: 10px; color: #4f46e5;'>{blanks}</h3>", unsafe_allow_html=True)
         
