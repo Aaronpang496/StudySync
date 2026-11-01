@@ -68,11 +68,14 @@ if "scramble_card" not in st.session_state: st.session_state.scramble_card = Non
 if "scramble_letters" not in st.session_state: st.session_state.scramble_letters = []
 if "scramble_answer" not in st.session_state: st.session_state.scramble_answer = ""
 
-# True/False Game State
+# True/False Game State (UPDATED)
 if "tf_score" not in st.session_state: st.session_state.tf_score = 0
+if "tf_lives" not in st.session_state: st.session_state.tf_lives = 5
 if "tf_playing" not in st.session_state: st.session_state.tf_playing = False
 if "tf_current" not in st.session_state: st.session_state.tf_current = None
 if "tf_is_correct" not in st.session_state: st.session_state.tf_is_correct = True
+if "tf_answered" not in st.session_state: st.session_state.tf_answered = False
+if "tf_feedback" not in st.session_state: st.session_state.tf_feedback = ""
 
 def generate_learn_options():
     if len(st.session_state.flashcards) < 2: return
@@ -108,7 +111,7 @@ with st.sidebar:
         *   **📝 Test:** Multiple-choice quiz.
         *   **🎮 Match Game:** Race the clock to pair terms.
         *   **🧩 Scramble:** Unscramble the hidden word.
-        *   **⚖️ True/False:** Survival mode!
+        *   **⚖️ True/False:** Survival mode! You have 5 lives.
         """)
         
     st.divider()
@@ -301,7 +304,6 @@ else:
                 st.session_state.last_refresh = time.time()
                 st.rerun()
 
-            # --- THE HOLDING SENTENCE ---
             if st.session_state.match_selected_term:
                 st.markdown(f"<h4 style='text-align: center; color: #4f46e5;'>👉 I am looking for the definition of: <u>{st.session_state.match_selected_term}</u></h4>", unsafe_allow_html=True)
             else:
@@ -316,7 +318,6 @@ else:
             random.shuffle(terms)
             random.shuffle(defs)
             
-            # --- CALLBACK FUNCTIONS FOR INSTANT UPDATE ---
             def select_term(term):
                 st.session_state.match_selected_term = term
 
@@ -389,55 +390,88 @@ else:
             if st.button("Try Again ➡️", type="primary"):
                 st.session_state.scramble_card = None; st.rerun()
 
-    # 6. TRUE / FALSE GAME
+    # 6. TRUE / FALSE GAME (UPDATED WITH LIVES)
     elif st.session_state.active_mode == "True/False":
         st.subheader("⚖️ True or False (Survival)")
         
+        # Start Screen
         if not st.session_state.tf_playing:
-            st.write("🏆 **High Score:** " + str(st.session_state.tf_score))
+            st.write(f"🏆 **High Score:** {st.session_state.tf_score}")
+            st.write("❤️ **Lives:** 5")
             if st.button("▶️ Start Survival Mode", type="primary"):
                 st.session_state.tf_playing = True
                 st.session_state.tf_score = 0
+                st.session_state.tf_lives = 5
+                st.session_state.tf_answered = False
                 st.session_state.tf_current = random.choice(st.session_state.flashcards)
                 st.session_state.tf_is_correct = random.choice([True, False])
                 st.rerun()
+        
+        # Game Over Screen
+        elif st.session_state.tf_lives <= 0:
+            st.error(f"💀 Game Over! You ran out of lives. Final Streak: {st.session_state.tf_score}")
+            st.write("❤️ " * 0)
+            if st.button("Play Again", type="primary"):
+                st.session_state.tf_playing = False
+                st.rerun()
+                
+        # Gameplay Screen
         else:
-            st.write(f"🔥 **Streak:** {st.session_state.tf_score}")
+            # Display Stats
+            lives_display = "❤️" * st.session_state.tf_lives
+            st.write(f"🔥 **Streak:** {st.session_state.tf_score}  |  **Lives:** {lives_display}")
             
+            # Determine the displayed definition
             shown_def = st.session_state.tf_current["definition"]
             if not st.session_state.tf_is_correct:
                 wrong_cards = [c for c in st.session_state.flashcards if c["term"] != st.session_state.tf_current["term"]]
                 if wrong_cards:
                     shown_def = random.choice(wrong_cards)["definition"]
             
+            # Display Question
             st.markdown(f"### {st.session_state.tf_current['term']}")
             st.info(f"*{shown_def}*")
             
-            col1, col2 = st.columns(2)
-            if col1.button("✅ TRUE", use_container_width=True, type="primary"):
-                if st.session_state.tf_is_correct:
-                    st.session_state.tf_score += 1
-                    st.session_state.xp += 5
-                    play_sound("correct")
+            # Feedback
+            if st.session_state.tf_answered:
+                if st.session_state.tf_feedback == "correct":
+                    st.success("✅ Correct! +5 XP")
+                else:
+                    st.error(f"❌ Wrong! The correct definition is: {st.session_state.tf_current['definition']}")
+                    st.write(f"Lives remaining: {'❤️' * st.session_state.tf_lives}")
+                
+                if st.button("Next Question ➡️", type="primary"):
+                    # Load new question
+                    st.session_state.tf_answered = False
                     st.session_state.tf_current = random.choice(st.session_state.flashcards)
                     st.session_state.tf_is_correct = random.choice([True, False])
-                    st.rerun()
-                else:
-                    st.error("❌ Game Over! That was False.")
-                    play_sound("wrong")
-                    st.session_state.tf_playing = False
                     st.rerun()
                     
-            if col2.button("❌ FALSE", use_container_width=True, type="secondary"):
-                if not st.session_state.tf_is_correct:
-                    st.session_state.tf_score += 1
-                    st.session_state.xp += 5
-                    play_sound("correct")
-                    st.session_state.tf_current = random.choice(st.session_state.flashcards)
-                    st.session_state.tf_is_correct = random.choice([True, False])
+            # Buttons (only show if not answered yet)
+            else:
+                col1, col2 = st.columns(2)
+                if col1.button("✅ TRUE", use_container_width=True, type="primary"):
+                    st.session_state.tf_answered = True
+                    if st.session_state.tf_is_correct:
+                        st.session_state.tf_score += 1
+                        st.session_state.xp += 5
+                        st.session_state.tf_feedback = "correct"
+                        play_sound("correct")
+                    else:
+                        st.session_state.tf_lives -= 1
+                        st.session_state.tf_feedback = "wrong"
+                        play_sound("wrong")
                     st.rerun()
-                else:
-                    st.error("❌ Game Over! That was True.")
-                    play_sound("wrong")
-                    st.session_state.tf_playing = False
+                        
+                if col2.button("❌ FALSE", use_container_width=True, type="secondary"):
+                    st.session_state.tf_answered = True
+                    if not st.session_state.tf_is_correct:
+                        st.session_state.tf_score += 1
+                        st.session_state.xp += 5
+                        st.session_state.tf_feedback = "correct"
+                        play_sound("correct")
+                    else:
+                        st.session_state.tf_lives -= 1
+                        st.session_state.tf_feedback = "wrong"
+                        play_sound("wrong")
                     st.rerun()
