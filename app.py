@@ -302,16 +302,14 @@ else:
                 st.session_state.last_refresh = time.time()
                 st.rerun()
 
-            st.info("👆 **How to play:** Click a Term on the left, then click its matching Definition on the right!")
+            # --- THE HOLDING SENTENCE ---
+            if st.session_state.match_selected_term:
+                st.markdown(f"<h4 style='text-align: center; color: #4f46e5;'>👉 I am looking for the definition of: <u>{st.session_state.match_selected_term}</u></h4>", unsafe_allow_html=True)
+            else:
+                st.markdown("<h4 style='text-align: center; color: #888;'>👇 Click a Term below to pick it up</h4>", unsafe_allow_html=True)
             
             elapsed = round(time.time() - st.session_state.match_start_time, 1)
             st.write(f"⏱️ Time: **{elapsed}s** | 🔀 Moves: **{st.session_state.match_moves}**")
-            
-            if st.session_state.match_selected_term:
-                st.write(f"🎯 **Selected Term:** `{st.session_state.match_selected_term}`")
-            else:
-                st.write("🎯 **Selected Term:** None (Click a term to start)")
-            
             st.divider()
             
             terms = [c["term"] for c in st.session_state.match_game_cards if c["term"] not in st.session_state.match_matched]
@@ -321,7 +319,7 @@ else:
             
             col1, col2 = st.columns(2)
             with col1:
-                st.write("**Terms**")
+                st.write("### 📦 Terms")
                 for t in terms:
                     btn_type = "primary" if st.session_state.match_selected_term == t else "secondary"
                     if st.button(t, key=f"term_{t}", use_container_width=True, type=btn_type):
@@ -329,7 +327,7 @@ else:
                         st.rerun()
                         
             with col2:
-                st.write("**Definitions**")
+                st.write("### 🎯 Definitions")
                 for d in defs:
                     if st.button(d, key=f"def_{d}", use_container_width=True):
                         if st.session_state.match_selected_term:
@@ -340,10 +338,13 @@ else:
                                 st.session_state.match_matched.append(st.session_state.match_selected_term)
                                 st.session_state.match_selected_term = None
                                 play_sound("correct")
+                                st.toast(f"✅ Matched!")
+                                st.rerun()
                             else:
                                 st.session_state.match_selected_term = None
                                 play_sound("wrong")
-                            st.rerun()
+                                st.toast(f"❌ Wrong! Try again.")
+                                st.rerun()
                         else:
                             st.warning("⚠️ Please click a Term on the left first!")
 
