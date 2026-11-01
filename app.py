@@ -89,8 +89,32 @@ if st.session_state.current_index >= len(st.session_state.flashcards):
 # --- SIDEBAR ---
 with st.sidebar:
     st.markdown(f'<div class="xp-badge">🏆 {st.session_state.xp} XP</div>', unsafe_allow_html=True)
+    
+    st.header("👋 Welcome to StudySync!")
+    st.write("""
+    **StudySync Arcade** turns boring vocabulary and facts into fun, fast-paced games. 
+    Earn XP, build streaks, and master your deck!
+    """)
+    
+    with st.expander("📖 How to Use", expanded=True):
+        st.markdown("""
+        **1. Generate a Deck:** Type a topic in the box below and hit Generate. *(Leave it blank for a random challenge!)*
+        
+        **2. Pick a Mode:** Use the menu at the top of the screen.
+        
+        **3. Play & Learn:**
+        *   **📇 Flashcards:** Flip and memorize.
+        *   **🧠 Learn:** Pick the right definition.
+        *   **📝 Test:** Multiple-choice quiz.
+        *   **🎮 Match Game:** Race the clock to pair terms.
+        *   **🧩 Scramble:** Unscramble the hidden word.
+        *   **⚖️ True/False:** Survival mode!
+        """)
+        
+    st.divider()
+    
     st.subheader("🤖 AI Deck Generator")
-    topic = st.text_input("Topic:", placeholder="Leave blank for random words!")
+    topic = st.text_input("Topic:", placeholder="e.g., Biology, Space, History")
     
     if st.button("✨ Generate Deck", type="primary", use_container_width=True):
         if not topic.strip():
@@ -253,7 +277,7 @@ else:
                 st.session_state.mcq_answered = False
                 st.rerun()
 
-    # 4. MATCH GAME (Native timer workaround)
+    # 4. MATCH GAME
     elif st.session_state.active_mode == "Match Game":
         st.subheader("🎮 Match Game")
         
@@ -272,7 +296,6 @@ else:
             if st.button("Play Again"):
                 st.session_state.match_start_time = None; st.rerun()
         else:
-            # Native auto-refresh trick
             if "last_refresh" not in st.session_state: st.session_state.last_refresh = time.time()
             if time.time() - st.session_state.last_refresh > 1.0:
                 st.session_state.last_refresh = time.time()
@@ -326,7 +349,6 @@ else:
         
         st.info(f"**Clue:** {st.session_state.scramble_card['definition']}")
         
-        # Show blanks (word length)
         blanks = " ".join(["_" for _ in target_word])
         st.markdown(f"<h3 style='letter-spacing: 10px; color: #4f46e5;'>{blanks}</h3>", unsafe_allow_html=True)
         
