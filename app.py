@@ -277,7 +277,7 @@ else:
                 st.session_state.mcq_answered = False
                 st.rerun()
 
-    # 4. MATCH GAME (Live Timer Fixed)
+    # 4. MATCH GAME
     elif st.session_state.active_mode == "Match Game":
         st.subheader("🎮 Match Game")
         
@@ -296,22 +296,23 @@ else:
             if st.button("Play Again"):
                 st.session_state.match_start_time = None; st.rerun()
         else:
-            # --- LIVE TIMER LOGIC ---
-            # This placeholder is where the timer lives
-            timer_placeholder = st.empty()
-            
-            # Display current time
-            elapsed = round(time.time() - st.session_state.match_start_time, 1)
-            timer_placeholder.write(f"⏱️ Time: **{elapsed}s** | 🔀 Moves: **{st.session_state.match_moves}**")
-
-            # If 1 second has passed since the last refresh, trigger a rerun
-            if "last_match_refresh" not in st.session_state:
-                st.session_state.last_match_refresh = time.time()
-            
-            if time.time() - st.session_state.last_match_refresh >= 1.0:
-                st.session_state.last_match_refresh = time.time()
+            # Timer refresh trick
+            if "last_refresh" not in st.session_state: st.session_state.last_refresh = time.time()
+            if time.time() - st.session_state.last_refresh > 1.0:
+                st.session_state.last_refresh = time.time()
                 st.rerun()
-            # ------------------------
+
+            st.info("👆 **How to play:** Click a Term on the left, then click its matching Definition on the right!")
+            
+            elapsed = round(time.time() - st.session_state.match_start_time, 1)
+            st.write(f"⏱️ Time: **{elapsed}s** | 🔀 Moves: **{st.session_state.match_moves}**")
+            
+            if st.session_state.match_selected_term:
+                st.write(f"🎯 **Selected Term:** `{st.session_state.match_selected_term}`")
+            else:
+                st.write("🎯 **Selected Term:** None (Click a term to start)")
+            
+            st.divider()
             
             terms = [c["term"] for c in st.session_state.match_game_cards if c["term"] not in st.session_state.match_matched]
             defs = [c["definition"] for c in st.session_state.match_game_cards if c["definition"] not in st.session_state.match_matched]
@@ -322,9 +323,11 @@ else:
             with col1:
                 st.write("**Terms**")
                 for t in terms:
-                    if st.button(t, key=f"term_{t}", use_container_width=True, type="primary" if st.session_state.match_selected_term == t else "secondary"):
+                    btn_type = "primary" if st.session_state.match_selected_term == t else "secondary"
+                    if st.button(t, key=f"term_{t}", use_container_width=True, type=btn_type):
                         st.session_state.match_selected_term = t
                         st.rerun()
+                        
             with col2:
                 st.write("**Definitions**")
                 for d in defs:
@@ -332,6 +335,7 @@ else:
                         if st.session_state.match_selected_term:
                             st.session_state.match_moves += 1
                             correct_def = next(c["definition"] for c in st.session_state.match_game_cards if c["term"] == st.session_state.match_selected_term)
+                            
                             if d == correct_def:
                                 st.session_state.match_matched.append(st.session_state.match_selected_term)
                                 st.session_state.match_selected_term = None
@@ -340,6 +344,8 @@ else:
                                 st.session_state.match_selected_term = None
                                 play_sound("wrong")
                             st.rerun()
+                        else:
+                            st.warning("⚠️ Please click a Term on the left first!")
 
     # 5. SCRAMBLE GAME
     elif st.session_state.active_mode == "Scramble":
