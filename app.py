@@ -3,6 +3,7 @@ import random
 import json
 import requests
 import time
+from streamlit_autorefresh import st_autorefresh # Required for the timer
 
 st.set_page_config(page_title="StudySync", page_icon="🎮", layout="centered")
 
@@ -44,24 +45,18 @@ HARD_WORDS = [
     {"term": "Sycophant", "definition": "A person who acts obsequiously toward someone important."},
     {"term": "Zeitgeist", "definition": "The defining spirit or mood of a particular period of history."},
     {"term": "Quantum", "definition": "A discrete quantity of energy proportional in magnitude to the frequency of the radiation."},
-    {"term": "Photosynthesis", "definition": "The process by which green plants use sunlight to synthesize nutrients."},
-    {"term": "String Theory", "definition": "A theoretical framework in which the point-like particles of particle physics are replaced by one-dimensional objects called strings."},
     {"term": "Stoichiometry", "definition": "The relationship between the relative quantities of substances taking part in a reaction."}
 ]
 
 # --- STATE MANAGEMENT ---
 if "xp" not in st.session_state: st.session_state.xp = 0
-if "flashcards" not in st.session_state:
-    # Start with 5 random hard words
-    st.session_state.flashcards = random.sample(HARD_WORDS, 5)
+if "flashcards" not in st.session_state: st.session_state.flashcards = random.sample(HARD_WORDS, 5)
 
 if "active_mode" not in st.session_state: st.session_state.active_mode = "Flashcards"
 if "current_index" not in st.session_state: st.session_state.current_index = 0
 if "is_flipped" not in st.session_state: st.session_state.is_flipped = False
 if "learn_options" not in st.session_state: st.session_state.learn_options = []
 if "learn_feedback" not in st.session_state: st.session_state.learn_feedback = None
-if "test_submitted" not in st.session_state: st.session_state.test_submitted = False
-if "test_answers" not in st.session_state: st.session_state.test_answers = {}
 
 # Match Game State
 if "match_selected_term" not in st.session_state: st.session_state.match_selected_term = None
@@ -95,12 +90,10 @@ if st.session_state.current_index >= len(st.session_state.flashcards):
 # --- SIDEBAR ---
 with st.sidebar:
     st.markdown(f'<div class="xp-badge">🏆 {st.session_state.xp} XP</div>', unsafe_allow_html=True)
-    
     st.subheader("🤖 AI Deck Generator")
     topic = st.text_input("Topic:", placeholder="Leave blank for hard random words!")
     
     if st.button("✨ Generate Deck", type="primary", use_container_width=True):
-        # IF BLANK -> PULL RANDOM HARD WORDS
         if not topic.strip():
             st.session_state.flashcards = random.sample(HARD_WORDS, 5)
             st.session_state.current_index = 0
@@ -130,7 +123,7 @@ with st.sidebar:
                     else:
                         st.error("Server busy. Try again.")
                 except Exception as e:
-                    st.error("Error parsing AI response. Try clicking Generate again.")
+                    st.error("Error parsing AI response. Try again.")
     
     st.divider()
     st.caption(f"Deck Status: **{len(st.session_state.flashcards)}** active cards.")
@@ -144,7 +137,7 @@ mode = st.radio("Select Mode:", modes, horizontal=True, label_visibility="collap
 if mode != st.session_state.active_mode:
     st.session_state.active_mode = mode
     st.session_state.is_flipped = False
-    st.session_state.test_submitted = False
+    st.session_state.learn_feedback = None
     st.session_state.match_start_time = None
     st.session_state.scramble_card = None
     st.session_state.tf_playing = False
@@ -211,32 +204,61 @@ else:
                 st.session_state.current_index = (st.session_state.current_index + 1) % len(st.session_state.flashcards)
                 st.session_state.learn_feedback = None; generate_learn_options(); st.rerun()
 
-    # 3. TEST
+    # 3. TEST (NOW MULTIPLE CHOICE - NO TYPING)
     elif st.session_state.active_mode == "Test":
-        st.subheader("📝 Boss Fight (Test)")
-        if not st.session_state.test_submitted:
-            for idx, card in enumerate(st.session_state.flashcards):
-                st.write(f"**Q{idx+1}:** What does **{card['term']}** mean?")
-                st.session_state.test_answers[card['term']] = st.text_input("", key=f"q_{idx}", label_visibility="collapsed")
-            if st.button("Submit Answers", type="primary"):
-                st.session_state.test_submitted = True; st.rerun()
-        else:
-            correct_count = 0
-            for card in st.session_state.flashcards:
-                u_ans = st.session_state.test_answers.get(card['term'], '').strip().lower()
-                t_ans = card['definition'].strip().lower()
-                if u_ans and (u_ans in t_ans or t_ans in u_ans):
-                    st.success(f"✅ **{card['term']}**: {st.session_state.test_answers.get(card['term'])}")
-                    correct_count += 1
-                else: st.error(f"❌ **{card['term']}** (Expected: {card['definition']})")
-            
-            acc = int((correct_count/len(st.session_state.flashcards))*100)
-            st.metric("Accuracy", f"{acc}%")
-            st.session_state.xp += (acc // 2)
-            
-            if st.button("Retake"): st.session_state.test_submitted = False; st.session_state.test_answers = {}; st.rerun()
+        st.subheader("📝 Multiple Choice Test")
+        
+        # Use session state to track test progress
+        if "mcq_current" not in st.session_state:
+            st.session_state.mcq_current = 0
+            st.session_state.mcq_score = 0
+            st.session_state.mcq_options = []
+            st.session_state.mcq_answered = False
 
-    # 4. MATCH GAME
+        if st.session_state.mcq_current < len(st.session_state.flashcards):
+            card = st.session_state.flashcards[st.session_state.mcq_current]
+            st.write(f"**Question {st.session_state.mcq_current + 1} of {len(st.session_state.flashcards)}**")
+            st.progress((st.session_state.mcq_current) / len(st.session_state.flashcards))
+            
+            # Generate options once per question
+            if not st.session_state.mcq_options:
+                wrong_cards = [c for c in st.session_state.flashcards if c["term"] != card["term"]]
+                opts = [card["definition"]] + [c["definition"] for c in random.sample(wrong_cards, min(3, len(wrong_cards)))]
+                random.shuffle(opts)
+                st.session_state.mcq_options = opts
+
+            st.info(f"What is the definition of **{card['term']}**?")
+            
+            for opt in st.session_state.mcq_options:
+                if st.button(opt, use_container_width=True, disabled=st.session_state.mcq_answered):
+                    if opt == card["definition"]:
+                        st.success("✅ Correct! +10 XP")
+                        st.session_state.xp += 10
+                        st.session_state.mcq_score += 1
+                        play_sound("correct")
+                    else:
+                        st.error(f"❌ Wrong! It was: {card['definition']}")
+                        play_sound("wrong")
+                    st.session_state.mcq_answered = True
+                    st.rerun()
+                    
+            if st.session_state.mcq_answered:
+                if st.button("Next Question ➡️", type="primary"):
+                    st.session_state.mcq_current += 1
+                    st.session_state.mcq_options = []
+                    st.session_state.mcq_answered = False
+                    st.rerun()
+        else:
+            st.success(f"🎉 Test Complete! Score: {st.session_state.mcq_score}/{len(st.session_state.flashcards)}")
+            st.balloons()
+            if st.button("Retake Test"):
+                st.session_state.mcq_current = 0
+                st.session_state.mcq_score = 0
+                st.session_state.mcq_options = []
+                st.session_state.mcq_answered = False
+                st.rerun()
+
+    # 4. MATCH GAME (WITH AUTO-REFRESH TIMER)
     elif st.session_state.active_mode == "Match Game":
         st.subheader("🎮 Match Game")
         
@@ -255,6 +277,9 @@ else:
             if st.button("Play Again"):
                 st.session_state.match_start_time = None; st.rerun()
         else:
+            # FORCE REFRESH EVERY SECOND FOR TIMER
+            st_autorefresh(interval=1000, key="match_timer")
+            
             elapsed = round(time.time() - st.session_state.match_start_time, 1)
             st.write(f"⏱️ Time: **{elapsed}s** | 🔀 Moves: **{st.session_state.match_moves}**")
             
@@ -286,7 +311,7 @@ else:
                                 play_sound("wrong")
                             st.rerun()
 
-    # 5. SCRAMBLE GAME
+    # 5. SCRAMBLE GAME (NOW SHOWS WORD LENGTH)
     elif st.session_state.active_mode == "Scramble":
         st.subheader("🧩 Scramble")
         
@@ -299,8 +324,15 @@ else:
             st.session_state.scramble_answer = ""
             st.rerun()
 
+        target_word = st.session_state.scramble_card["term"].replace(" ", "").upper()
+        
         st.info(f"**Clue:** {st.session_state.scramble_card['definition']}")
-        st.write(f"### {st.session_state.scramble_answer if st.session_state.scramble_answer else '_ _ _'}")
+        
+        # Show number of letters needed
+        blanks = " ".join(["_" for _ in target_word])
+        st.markdown(f"<h3 style='letter-spacing: 10px; color: #4f46e5;'>{blanks}</h3>", unsafe_allow_html=True)
+        
+        st.write(f"### Your Answer: **{st.session_state.scramble_answer if st.session_state.scramble_answer else ''}**")
         
         cols = st.columns(6)
         for i, letter in enumerate(st.session_state.scramble_letters):
@@ -312,7 +344,7 @@ else:
         if st.button("🔄 Reset Word", use_container_width=True):
             st.session_state.scramble_card = None; st.rerun()
             
-        if st.session_state.scramble_answer == st.session_state.scramble_card["term"].replace(" ", "").upper():
+        if st.session_state.scramble_answer == target_word:
             st.success("🎉 Unscrambled!")
             play_sound("correct")
             st.session_state.xp += 15
